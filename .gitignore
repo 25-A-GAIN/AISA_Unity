@@ -69,3 +69,7 @@ sysinfo.txt
 crashlytics-build.properties
 
 UserSettings/
+
+# Whisper 모델 파일 (용량이 커서 커밋하지 않음 - Tools > Whisper > Download Model 로 받기)
+/[Aa]ssets/StreamingAssets/Whisper/*.bin
+/[Aa]ssets/StreamingAssets/Whisper/*.bin.meta
