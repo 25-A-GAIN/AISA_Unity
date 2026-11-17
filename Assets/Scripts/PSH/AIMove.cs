@@ -34,7 +34,7 @@ public class AIMove : MonoBehaviour
             return;
 
         isMoving = false;
-        Debug.Log($"[AIMove] 도착: {transform.position}");
+       // Debug.Log($"[AIMove] 도착: {transform.position}");
 
         if (pendingSteps.Count > 0)
             StartNextStep();
@@ -62,6 +62,17 @@ public class AIMove : MonoBehaviour
             pendingSteps.Enqueue(step);
 
         return StartNextStep();
+    }
+
+    // 진행 중인 이동과 남은 단계를 모두 버리고 그 자리에 선다.
+    public void Stop()
+    {
+        pendingSteps.Clear();
+        isMoving = false;
+        agent.speed = baseSpeed;
+        if (agent.isOnNavMesh)
+            agent.ResetPath();
+        Debug.Log("[AIMove] 정지");
     }
 
     // 목적지는 이전 단계가 끝난 뒤의 위치와 방향을 기준으로 이 시점에 계산한다.
@@ -102,7 +113,7 @@ public class AIMove : MonoBehaviour
         agent.speed = baseSpeed * Mathf.Clamp(speedScale, minSpeedScale, maxSpeedScale);
         agent.SetPath(path);
         isMoving = true;
-        Debug.Log($"[AIMove] 이동 시작: {hit.position}");
+      //  Debug.Log($"[AIMove] 이동 시작: {hit.position}");
         return true;
     }
 

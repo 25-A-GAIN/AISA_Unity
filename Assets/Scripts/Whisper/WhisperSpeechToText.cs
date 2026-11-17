@@ -82,7 +82,8 @@ namespace AISA.Speech
 
         public void StartRecording()
         {
-            if (IsRecording || IsTranscribing)
+            // 변환 중이어도 녹음은 바로 시작한다. 새 음성이 들어오면 이전 결과는 버린다.
+            if (IsRecording)
                 return;
 
             if (Microphone.devices.Length == 0)
@@ -101,6 +102,7 @@ namespace AISA.Speech
 
             IsRecording = true;
             _recordStartTime = Time.realtimeSinceStartup;
+            Debug.Log("[Whisper] 녹음 시작");
             onRecordingStarted?.Invoke();
         }
 
@@ -113,6 +115,7 @@ namespace AISA.Speech
             var position = Microphone.GetPosition(_device);
             Microphone.End(_device);
             IsRecording = false;
+            Debug.Log($"[Whisper] 녹음 끝 ({Time.realtimeSinceStartup - _recordStartTime:0.0}초)");
             onRecordingStopped?.Invoke();
 
             // 녹음이 최대 길이까지 꽉 차면 position 이 0 으로 돌아올 수 있음
@@ -156,7 +159,24 @@ namespace AISA.Speech
             }
         }
 
-        private async void Transcribe(float[] samples, int frequency, int channels)
+        // 가장 최근 음성의 번호. 이 번호가 아닌 변환 결과는 버린다.
+        private int _latestId;
+        // 변환 중에 들어온 새 음성 (항상 가장 최근 것 하나만 기다린다)
+        private (float[] samples, int frequency, int channels, int id)? _pending;
+
+        private void Transcribe(float[] samples, int frequency, int channels)
+        {
+            var id = ++_latestId;
+            if (IsTranscribing)
+            {
+                // Whisper 는 한 번에 하나만 돌리고, 지금 것이 끝나면 이 음성을 바로 변환한다
+                _pending = (samples, frequency, channels, id);
+                return;
+            }
+            RunTranscribe(samples, frequency, channels, id);
+        }
+
+        private async void RunTranscribe(float[] samples, int frequency, int channels, int id)
         {
             IsTranscribing = true;
             var sw = Stopwatch.StartNew();
@@ -164,6 +184,11 @@ namespace AISA.Speech
             {
                 _whisper.language = language;
                 var result = await _whisper.GetTextAsync(samples, frequency, channels);
+                if (id != _latestId)
+                {
+                    Debug.Log($"[Whisper] 새 명령이 들어와 이전 결과는 버림: {result?.Result?.Trim()}");
+                    return;
+                }
                 Debug.Log($"[Whisper] 변환 시간: {sw.ElapsedMilliseconds} ms");
                 HandleResult(result);
             }
@@ -174,6 +199,11 @@ namespace AISA.Speech
             finally
             {
                 IsTranscribing = false;
+                if (_pending is { } next)
+                {
+                    _pending = null;
+                    RunTranscribe(next.samples, next.frequency, next.channels, next.id);
+                }
             }
         }
 
